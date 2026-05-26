@@ -1,6 +1,11 @@
 import asyncio
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
+
+def now_kst() -> datetime:
+    return datetime.now(KST).replace(tzinfo=None)
 from pathlib import Path
 
 import xlsxwriter
@@ -46,7 +51,7 @@ async def process_excel_job(job_id: str) -> None:
     try:
         # 1. PROCESSING 시작 + started_at 기록
         async with pool.acquire() as conn:
-            await update_job(conn, job_id, status="PROCESSING", progress=10, started_at=datetime.now())
+            await update_job(conn, job_id, status="PROCESSING", progress=10, started_at=now_kst())
 
         # 2. DB에서 주문 데이터 조회
         async with pool.acquire() as conn:
@@ -71,9 +76,9 @@ async def process_excel_job(job_id: str) -> None:
 
         # 4. 완료 + completed_at 기록
         async with pool.acquire() as conn:
-            await update_job(conn, job_id, status="COMPLETED", progress=100, file_path=file_path, completed_at=datetime.now())
+            await update_job(conn, job_id, status="COMPLETED", progress=100, file_path=file_path, completed_at=now_kst())
 
     except Exception as e:
         async with pool.acquire() as conn:
-            await update_job(conn, job_id, status="FAILED", error=str(e), completed_at=datetime.now())
+            await update_job(conn, job_id, status="FAILED", error=str(e), completed_at=now_kst())
         raise
