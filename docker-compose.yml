@@ -1,0 +1,68 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: excel-api
+    profiles: [app]
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://excel_user:excel_pass@db:5432/excel_db
+      - EXCEL_OUTPUT_DIR=/app/excel_files
+    volumes:
+      - excel_files:/app/excel_files
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  db:
+    image: postgres:16-alpine
+    container_name: excel-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: excel_db
+      POSTGRES_USER: excel_user
+      POSTGRES_PASSWORD: excel_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U excel_user -d excel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: excel-frontend
+    profiles: [app]
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  excel_files:
+
+networks:
+  app-network:
+    driver: bridge
