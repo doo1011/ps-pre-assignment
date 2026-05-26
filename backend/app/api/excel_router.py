@@ -1,7 +1,9 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.constants import JOB_STATUS_MAP
 from app.db.connection import get_pool
@@ -11,11 +13,17 @@ from app.worker.queue import job_queue
 router = APIRouter(prefix="/api/excel", tags=["excel"])
 
 
+class GenerateRequest(BaseModel):
+    start_date: date | None = None
+    end_date:   date | None = None
+
+
 # ── 1. 엑셀 생성 요청 ────────────────────────────────────────────
 @router.post("/generate", status_code=202)
-async def generate_excel():
+async def generate_excel(body: GenerateRequest = GenerateRequest()):
     """
     엑셀 생성 작업을 요청합니다.
+    start_date / end_date 로 주문일시 범위 필터링 가능 (미입력 시 전체).
     즉시 job_id를 반환하고, 백그라운드에서 파일을 생성합니다.
     """
     job_id = str(uuid.uuid4())
@@ -24,7 +32,11 @@ async def generate_excel():
     async with pool.acquire() as conn:
         await create_job(conn, job_id)
 
-    await job_queue.put(job_id)
+    await job_queue.put({
+        "job_id":     job_id,
+        "start_date": body.start_date,
+        "end_date":   body.end_date,
+    })
 
     return {"job_id": job_id, "status": JOB_STATUS_MAP["PENDING"]}
 
@@ -32,10 +44,6 @@ async def generate_excel():
 # ── 2. 작업 상태 조회 ────────────────────────────────────────────
 @router.get("/status/{job_id}")
 async def get_status(job_id: str):
-    """
-    job_id에 해당하는 작업의 진행 상태를 반환합니다.
-    status: PENDING | PROCESSING | COMPLETED | FAILED
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         job = await get_job(conn, job_id)
@@ -57,10 +65,6 @@ async def get_status(job_id: str):
 # ── 3. 엑셀 파일 다운로드 ────────────────────────────────────────
 @router.get("/download/{job_id}")
 async def download_excel(job_id: str):
-    """
-    완료된 엑셀 파일을 다운로드합니다.
-    COMPLETED 상태가 아니면 400을 반환합니다.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         job = await get_job(conn, job_id)
@@ -87,9 +91,6 @@ async def list_jobs(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, ge=1, le=100),
 ):
-    """
-    엑셀 생성 요청 목록을 최신순으로 반환합니다.
-    """
     offset = (page - 1) * size
     pool   = await get_pool()
 

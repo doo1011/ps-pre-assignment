@@ -45,7 +45,11 @@ def _write_excel(file_path: str, rows: list[tuple]) -> None:
 
 
 # ── 비동기 메인 처리 ────────────────────────────────────────────
-async def process_excel_job(job_id: str) -> None:
+async def process_excel_job(
+    job_id: str,
+    start_date=None,
+    end_date=None,
+) -> None:
     pool = await get_pool()
 
     try:
@@ -53,15 +57,26 @@ async def process_excel_job(job_id: str) -> None:
         async with pool.acquire() as conn:
             await update_job(conn, job_id, status="PROCESSING", progress=10, started_at=now_kst())
 
-        # 2. DB에서 주문 데이터 조회
+        # 2. DB에서 주문 데이터 조회 (날짜 범위 필터 선택적 적용)
         async with pool.acquire() as conn:
-            records = await conn.fetch(
-                """
-                SELECT id, user_name, product_name, category, amount, status, order_date
-                FROM public.orders
-                ORDER BY id
-                """
-            )
+            if start_date and end_date:
+                records = await conn.fetch(
+                    """
+                    SELECT id, user_name, product_name, category, amount, status, order_date
+                    FROM public.orders
+                    WHERE DATE(order_date) BETWEEN $1 AND $2
+                    ORDER BY order_date DESC
+                    """,
+                    start_date, end_date,
+                )
+            else:
+                records = await conn.fetch(
+                    """
+                    SELECT id, user_name, product_name, category, amount, status, order_date
+                    FROM public.orders
+                    ORDER BY order_date DESC
+                    """
+                )
 
         # Record → tuple 변환 (스레드 간 전달 시 안전)
         rows = [tuple(r) for r in records]

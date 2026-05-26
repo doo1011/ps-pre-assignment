@@ -13,11 +13,16 @@ from app.worker.queue import job_queue
 
 # ── 백그라운드 워커 ──────────────────────────────────────────────
 async def worker() -> None:
-    """큐에서 job_id를 꺼내 엑셀 생성 작업을 처리합니다."""
+    """큐에서 작업을 꺼내 엑셀 생성을 처리합니다."""
     while True:
-        job_id = await job_queue.get()
+        item   = await job_queue.get()
+        job_id = item["job_id"]
         try:
-            await process_excel_job(job_id)
+            await process_excel_job(
+                job_id,
+                start_date=item.get("start_date"),
+                end_date=item.get("end_date"),
+            )
         except Exception as e:
             print(f"[worker] job {job_id} failed: {e}")
         finally:

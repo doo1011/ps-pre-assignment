@@ -14,14 +14,25 @@ export const api = {
   getJobs: (page = 1, size = 20) =>
     request(`/excel/jobs?page=${page}&size=${size}`),
 
-  // 엑셀 생성 요청
-  generateExcel: () =>
-    request('/excel/generate', { method: 'POST' }),
+  // 엑셀 생성 요청 (날짜 범위 선택적)
+  generateExcel: ({ startDate, endDate } = {}) =>
+    request('/excel/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start_date: startDate || null,
+        end_date:   endDate   || null,
+      }),
+    }),
 
-  // 다운로드 URL (FileResponse 직접 링크)
+  // 다운로드 URL
   downloadUrl: (jobId) => `${BASE}/excel/download/${jobId}`,
 
   // 주문 목록
   getOrders: (page = 1, size = 20) =>
     request(`/orders?page=${page}&size=${size}`),
+
+  // 주문 날짜 범위 (min/max)
+  getDateRange: () =>
+    request('/orders/date-range'),
 }

@@ -5,6 +5,11 @@
       <span style="font-size:12px; color:#999;">총 {{ total.toLocaleString() }}건</span>
     </div>
 
+    <!-- 날짜 범위 안내 -->
+    <div v-if="dateRange.min_date" style="font-size:12px; color:#666; margin-bottom:14px;">
+      📅 데이터 범위: <b>{{ fmtDate(dateRange.min_date) }}</b> ~ <b>{{ fmtDate(dateRange.max_date) }}</b>
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>
@@ -13,7 +18,7 @@
             <th>주문자명</th>
             <th>상품명</th>
             <th>카테고리</th>
-            <th>금액</th>
+            <th style="text-align:right;">금액</th>
             <th>상태</th>
             <th>주문일시</th>
           </tr>
@@ -27,7 +32,9 @@
             <td>{{ row.user_name }}</td>
             <td>{{ row.product_name }}</td>
             <td>{{ row.category }}</td>
-            <td>{{ row.amount.toLocaleString() }}원</td>
+            <td style="text-align:right; font-variant-numeric: tabular-nums;">
+              {{ row.amount.toLocaleString() }}원
+            </td>
             <td>{{ row.status }}</td>
             <td>{{ fmt(row.order_date) }}</td>
           </tr>
@@ -49,11 +56,12 @@ import { api } from '../api.js'
 
 const emit = defineEmits(['toast'])
 
-const items   = ref([])
-const total   = ref(0)
-const page    = ref(1)
-const loading = ref(false)
-const SIZE    = 20
+const items     = ref([])
+const total     = ref(0)
+const page      = ref(1)
+const loading   = ref(false)
+const dateRange = ref({ min_date: null, max_date: null })
+const SIZE      = 20
 
 const totalPages = computed(() => Math.ceil(total.value / SIZE))
 
@@ -70,15 +78,35 @@ async function load() {
   }
 }
 
-function changePage(p) {
-  page.value = p
-  load()
+async function loadDateRange() {
+  try {
+    dateRange.value = await api.getDateRange()
+  } catch { /* 조용히 무시 */ }
 }
+
+function changePage(p) { page.value = p; load() }
 
 function fmt(val) {
   if (!val) return '-'
-  return new Date(val).toLocaleString('ko-KR', { hour12: false })
+  const d   = new Date(val)
+  const y   = d.getFullYear()
+  const mo  = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h   = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  const s   = String(d.getSeconds()).padStart(2, '0')
+  return `${y}년 ${mo}월 ${day}일 ${h}:${min}:${s}`
 }
 
-onMounted(load)
+// 날짜 범위 표시용 (날짜만)
+function fmtDate(val) {
+  if (!val) return '-'
+  const d   = new Date(val)
+  const y   = d.getFullYear()
+  const mo  = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}년 ${mo}월 ${day}일`
+}
+
+onMounted(() => { load(); loadDateRange() })
 </script>

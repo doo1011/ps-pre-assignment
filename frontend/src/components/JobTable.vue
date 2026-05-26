@@ -2,7 +2,10 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title">데이터 요청 목록</span>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <input type="date" v-model="startDate" class="date-input" />
+        <span style="color:#999;">~</span>
+        <input type="date" v-model="endDate" class="date-input" />
         <button class="btn btn-primary" :disabled="generating" @click="requestGenerate">
           {{ generating ? '요청 중...' : '+ 엑셀 생성 요청' }}
         </button>
@@ -66,6 +69,8 @@ const total      = ref(0)
 const page       = ref(1)
 const loading    = ref(false)
 const generating = ref(false)
+const startDate  = ref('')
+const endDate    = ref('')
 const SIZE       = 20
 
 const totalPages = computed(() => Math.ceil(total.value / SIZE))
@@ -86,7 +91,10 @@ async function load() {
 async function requestGenerate() {
   generating.value = true
   try {
-    const data = await api.generateExcel()
+    const data = await api.generateExcel({
+      startDate: startDate.value || null,
+      endDate:   endDate.value   || null,
+    })
     emit('toast', { msg: `생성 요청 완료 (${data.job_id.slice(0, 8)}…)`, type: 'success' })
     page.value = 1
     await load()
@@ -97,18 +105,19 @@ async function requestGenerate() {
   }
 }
 
-function changePage(p) {
-  page.value = p
-  load()
-}
-
-function downloadUrl(jobId) {
-  return api.downloadUrl(jobId)
-}
+function changePage(p) { page.value = p; load() }
+function downloadUrl(jobId) { return api.downloadUrl(jobId) }
 
 function fmt(val) {
   if (!val) return '-'
-  return new Date(val).toLocaleString('ko-KR', { hour12: false })
+  const d = new Date(val)
+  const y   = d.getFullYear()
+  const mo  = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const h   = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  const s   = String(d.getSeconds()).padStart(2, '0')
+  return `${y}년 ${mo}월 ${day}일 ${h}:${min}:${s}`
 }
 
 function badgeClass(status) {
@@ -118,3 +127,13 @@ function badgeClass(status) {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.date-input {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #333;
+}
+</style>
