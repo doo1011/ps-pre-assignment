@@ -31,15 +31,22 @@ def _write_excel(file_path: str, rows: list[tuple]) -> None:
     for col, header in enumerate(HEADERS):
         worksheet.write(0, col, header, bold)
 
+    # 열 너비 설정 (샘플 데이터 최대 길이 + 여유)
+    # col: 0=ID, 1=주문자명, 2=상품명, 3=카테고리, 4=금액, 5=상태, 6=주문일시
+    col_widths = [10, 14, 26, 20, 16, 12, 22]
+    for col, width in enumerate(col_widths):
+        worksheet.set_column(col, col, width)
+
     # 데이터 행
     for row_idx, row in enumerate(rows, start=1):
-        worksheet.write(row_idx, 0, row[0])                                  # id
-        worksheet.write(row_idx, 1, row[1])                                  # user_name
-        worksheet.write(row_idx, 2, row[2])                                  # product_name
-        worksheet.write(row_idx, 3, row[3])                                  # category
-        worksheet.write(row_idx, 4, row[4])                                  # amount
-        worksheet.write(row_idx, 5, ORDER_STATUS_MAP.get(row[5], row[5]))     # status
-        worksheet.write(row_idx, 6, str(row[6]))                             # order_date
+        order_date = row[6].strftime("%Y-%m-%d %H:%M:%S") if row[6] else ""
+        worksheet.write(row_idx, 0, row[0])                               # id
+        worksheet.write(row_idx, 1, row[1])                               # user_name
+        worksheet.write(row_idx, 2, row[2])                               # product_name
+        worksheet.write(row_idx, 3, row[3])                               # category
+        worksheet.write(row_idx, 4, row[4])                               # amount
+        worksheet.write(row_idx, 5, ORDER_STATUS_MAP.get(row[5], row[5])) # status
+        worksheet.write(row_idx, 6, order_date)                           # order_date
 
     workbook.close()
 
